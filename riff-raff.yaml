@@ -1,0 +1,19 @@
+stacks: [flex-reindex-monitor-lambda]
+regions: [eu-west-1]
+
+deployments:
+  flex-reindex-monitor-lambda:
+    type: aws-lambda
+    parameters:
+      bucket: flex-reindex-monitor-lambda-dist
+      functionNames: [flex-reindex-monitor-lambda-]
+      fileName: flex-reindex-monitor-lambda.jar
+      prefixStack: false
+    dependencies: [flex-reindex-monitor-lambda-cfn]
+  flex-reindex-monitor-lambda-cfn:
+    type: cloud-formation
+    app: flex-reindex-monitor-lambda
+    parameters:
+      prependStackToCloudFormationStackName: false
+      cloudFormationStackName: flex-reindex-monitor-lambda
+      templatePath: cfn.yaml
