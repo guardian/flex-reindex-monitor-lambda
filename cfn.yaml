@@ -19,7 +19,11 @@ Parameters:
   DeployBucket:
     Description: Bucket where RiffRaff uploads artifacts on deploy
     Type: String
-    Default: flex-reindex-monitor-lambda-dist
+    Default: composer-dist
+  HandlerMethod:
+    Description: Which method to call when receiving the events
+    Type: String
+    Default: 4
 Resources:
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -63,25 +67,8 @@ Resources:
           Stack: !Ref Stack
           App: !Ref App
       Description: Monitor a reindex operation by observing a kinesis stream.
-      Handler: com.gu.flexiblecontent.reindexmonitor.Lambda::handler
+      Handler: !Sub ${HandlerMethod}
       MemorySize: 128
       Role: !GetAtt ExecutionRole.Arn
       Runtime: java8
       Timeout: 60
-
-  DailyEvent:
-    Type: AWS::Events::Rule
-    Properties:
-      Description: Event sent to process the previous day of data
-      ScheduleExpression: cron(14 3 * * ? *)
-      Targets:
-        - Id: Lambda
-          Arn: !GetAtt Lambda.Arn
-
-  DailyEventLambdaPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt Lambda.Arn
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt DailyEvent.Arn
