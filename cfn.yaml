@@ -53,6 +53,16 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: "*"
+        - PolicyName: kinesis
+          PolicyDocument:
+            Statement:
+              Effect: Allow
+              Action:
+                - kinesis:GetRecords
+                - kinesis:GetShardIterator
+                - kinesis:DescribeStream
+                - kinesis:ListStreams
+              Resource: "arn:aws:kinesis:eu-west-1:743583969668:stream/flexible-content-stream-draft-CODE"
   Lambda:
     Type: AWS::Lambda::Function
     Properties:
