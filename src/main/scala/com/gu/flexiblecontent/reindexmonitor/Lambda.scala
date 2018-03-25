@@ -48,22 +48,26 @@ object Lambda extends RequestHandler[KinesisEvent, Unit] {
   def handleRequest(input: KinesisEvent, context: Context): Unit = {
     val env = Env()
     logger.info(s"Starting $env")
-    process(input, env)
+    processKinesisEvent(input, env)
   }
 
-  def process(data: KinesisEvent, env: Env): Unit = {
+  def processKinesisEvent(data: KinesisEvent, env: Env): Unit = {
     val records = data.getRecords().asScala.map(_.getKinesis())
-    for (rec <- records) {
-      ThriftDeserialiser.deserialiseEvent(rec.getData()) match {
-        case Success(ev) => logger.info(s"decoded event: $ev")
-        case Failure(err) => logger.info(s"failed: $err")
-      }
+    records foreach { rec => processPayload(rec.getData()) }
+  }
+
+  def processPayload(payload: ByteBuffer): Unit = {
+    ThriftDeserialiser.deserialiseEvent(payload) match {
+      case Success(ev) => logger.info(s"decoded event: $ev")
+      case Failure(err) => logger.info(s"failed: $err")
     }
   }
 }
 
 object TestMain {
   def main(args: Array[String]) = {
-    println("main test")
+    val inputString = args.headOption
+      .getOrElse("Aii1L/0ASN0BADQDFQIWgPXT7ctYGCQ2YTI1OGVhOS04YTMzLTRjNWYtOWRjZS03MWYxNGRiZThmMjUWpBMAAQCjKIAC")
+    println(s"main test ($inputString)")
   }
 }
