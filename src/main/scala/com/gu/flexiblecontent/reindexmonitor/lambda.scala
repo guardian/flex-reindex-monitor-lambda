@@ -2,16 +2,15 @@ package com.gu.flexiblecontent.reindexmonitor
 
 import scala.collection.JavaConverters._
 
-import java.io.ByteArrayInputStream
+import java.util.Base64
+
 import java.nio.ByteBuffer
-import org.apache.thrift.protocol.TCompactProtocol
-import org.apache.thrift.transport.TIOStreamTransport
-import scala.util.{ Try, Success, Failure }
 
 import com.amazonaws.services.lambda.runtime.{ Context, RequestHandler }
 import org.slf4j.{ Logger, LoggerFactory }
 import com.amazonaws.services.lambda.runtime.events.KinesisEvent
 import com.gu.flexiblecontent.model.thrift.Event
+import scala.util.{ Try, Success, Failure }
 
 /**
  * This is compatible with aws' lambda JSON to POJO conversion.
@@ -28,17 +27,6 @@ object Env {
     Option(System.getenv("App")).getOrElse("DEV"),
     Option(System.getenv("Stack")).getOrElse("DEV"),
     Option(System.getenv("Stage")).getOrElse("DEV"))
-}
-
-object ThriftDeserialiser {
-  def deserialiseEvent(input: ByteBuffer): Try[Event] = {
-    Try {
-      val bis = new ByteArrayInputStream(input.array());
-      val transport = new TIOStreamTransport(bis)
-      val protocol = new TCompactProtocol(transport)
-      Event.decode(protocol)
-    }
-  }
 }
 
 object Lambda extends RequestHandler[KinesisEvent, Unit] {
@@ -69,5 +57,7 @@ object TestMain {
     val inputString = args.headOption
       .getOrElse("Aii1L/0ASN0BADQDFQIWgPXT7ctYGCQ2YTI1OGVhOS04YTMzLTRjNWYtOWRjZS03MWYxNGRiZThmMjUWpBMAAQCjKIAC")
     println(s"main test ($inputString)")
+    val data = Base64.getDecoder().decode(inputString)
+    Lambda.processPayload(ByteBuffer.wrap(data))
   }
 }
