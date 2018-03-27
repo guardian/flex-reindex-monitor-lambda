@@ -44,12 +44,7 @@ object Lambda extends RequestHandler[KinesisEvent, Unit] {
     records foreach { rec => processPayload(rec.getData()) }
   }
 
-  def processPayload(payload: ByteBuffer): Unit = {
-    ThriftDeserialiser.deserialiseEvent(payload) match {
-      case Success(ev) => logger.info(s"decoded event: $ev")
-      case Failure(err) => logger.info(s"failed: $err")
-    }
-  }
+  def processPayload(payload: ByteBuffer): Try[Event] = ThriftDeserialiser.deserialiseEvent(payload)
 }
 
 object TestMain {
@@ -58,6 +53,6 @@ object TestMain {
       .getOrElse("Aii1L/0ASN0BADQDFQIWgPXT7ctYGCQ2YTI1OGVhOS04YTMzLTRjNWYtOWRjZS03MWYxNGRiZThmMjUWpBMAAQCjKIAC")
     println(s"main test ($inputString)")
     val data = Base64.getDecoder().decode(inputString)
-    Lambda.processPayload(ByteBuffer.wrap(data))
+    println(Lambda.processPayload(ByteBuffer.wrap(data)))
   }
 }
