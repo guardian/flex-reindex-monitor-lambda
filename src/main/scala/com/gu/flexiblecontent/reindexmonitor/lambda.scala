@@ -41,7 +41,12 @@ object Lambda extends RequestHandler[KinesisEvent, Unit] {
 
   def processKinesisEvent(data: KinesisEvent, env: Env): Unit = {
     val records = data.getRecords().asScala.map(_.getKinesis())
-    records foreach { rec => processPayload(rec.getData()) }
+    records foreach { rec =>
+      processPayload(rec.getData()) match {
+        case Success(ev) => logger.info(s"received event $ev")
+        case Failure(err) => logger.error(s"couldn't process event $err")
+      }
+    }
   }
 
   def processPayload(payload: ByteBuffer): Try[Event] = ThriftDeserialiser.deserialiseEvent(payload)
