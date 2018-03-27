@@ -3,8 +3,11 @@ package com.gu.flexiblecontent.reindexmonitor
 import scala.collection.JavaConverters._
 
 import java.util.Base64
+import org.joda.time.DateTime
 
 import java.nio.ByteBuffer
+
+import com.amazonaws.auth.profile.ProfileCredentialsProvider
 
 import com.amazonaws.services.lambda.runtime.{ Context, RequestHandler }
 import org.slf4j.{ Logger, LoggerFactory }
@@ -18,15 +21,16 @@ import scala.util.{ Try, Success, Failure }
  * {"name": "Bob"}
  */
 
-case class Env(app: String, stack: String, stage: String) {
-  override def toString: String = s"App: $app, Stack: $stack, Stage: $stage\n"
+case class Env(app: String, stack: String, stage: String, dbTable: String) {
+  override def toString: String = s"App: $app, Stack: $stack, Stage: $stage, DBTable: $dbTable:\n"
 }
 
 object Env {
   def apply(): Env = Env(
     Option(System.getenv("App")).getOrElse("DEV"),
     Option(System.getenv("Stack")).getOrElse("DEV"),
-    Option(System.getenv("Stage")).getOrElse("DEV"))
+    Option(System.getenv("Stage")).getOrElse("DEV"),
+    Option(System.getenv("DynamoTable")).getOrElse("DEV"))
 }
 
 object Lambda extends RequestHandler[KinesisEvent, Unit] {
@@ -43,13 +47,22 @@ object Lambda extends RequestHandler[KinesisEvent, Unit] {
     val records = data.getRecords().asScala.map(_.getKinesis())
     records foreach { rec =>
       processPayload(rec.getData()) match {
-        case Success(ev) => logger.info(s"received event $ev")
-        case Failure(err) => logger.error(s"couldn't process event $err")
+        case Success(ev) =>
+          logger.info(s"received event $ev")
+          trackReindex(ev)
+        case Failure(err) =>
+          logger.error(s"couldn't process event $err")
       }
     }
   }
 
   def processPayload(payload: ByteBuffer): Try[Event] = ThriftDeserialiser.deserialiseEvent(payload)
+
+  def trackReindex(event: Event, tracker: Tracker = Tracker.getDefault) = {
+    val rec = ReindexEventRecord(event.contentId, new DateTime().getMillis)
+    logger.info(s"Recording event: $rec")
+    tracker.registerReindexEvent(rec)
+  }
 }
 
 object TestMain {
@@ -58,6 +71,10 @@ object TestMain {
       .getOrElse("Aii1L/0ASN0BADQDFQIWgPXT7ctYGCQ2YTI1OGVhOS04YTMzLTRjNWYtOWRjZS03MWYxNGRiZThmMjUWpBMAAQCjKIAC")
     println(s"main test ($inputString)")
     val data = Base64.getDecoder().decode(inputString)
-    println(Lambda.processPayload(ByteBuffer.wrap(data)))
+    val tracker = new DynamoDBTracker(Some("flex-reindex-monitor-test"), Some(new ProfileCredentialsProvider("composer")))
+    Lambda.processPayload(ByteBuffer.wrap(data)) match {
+      case Success(ev) => Lambda.trackReindex(ev, tracker)
+      case Failure(err) => println(s"Failed: ${err}")
+    }
   }
 }

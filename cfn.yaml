@@ -24,6 +24,14 @@ Parameters:
     Description: Which method to call when receiving the events
     Type: String
     Default: 4
+  WriteProvisions:
+    Default: "50"
+    Description: Number of provisioned writes for the event tracking table
+    Type: String
+  ReadProvisions:
+    Default: "5"
+    Description: Number of provisioned reads for the event tracking table
+    Type: String
 Resources:
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -62,7 +70,17 @@ Resources:
                 - kinesis:GetShardIterator
                 - kinesis:DescribeStream
                 - kinesis:ListStreams
-              Resource: "arn:aws:kinesis:eu-west-1:743583969668:stream/flexible-content-stream-draft-CODE"
+              Resource:
+                - !Sub arn:aws:kinesis:eu-west-1:743583969668:stream/flexible-content-stream-reindex-draft-${Stage}
+                - !Sub arn:aws:kinesis:eu-west-1:743583969668:stream/flexible-content-stream-reindex-live-${Stage}
+        - PolicyName: dynamo
+          PolicyDocument:
+            Statement:
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource:
+                - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDB}*
   Lambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -76,9 +94,27 @@ Resources:
           Stage: !Ref Stage
           Stack: !Ref Stack
           App: !Ref App
+          DynamoTable: !Ref DynamoDB
       Description: Monitor a reindex operation by observing a kinesis stream.
       Handler: !Sub ${HandlerMethod}
       MemorySize: 128
       Role: !GetAtt ExecutionRole.Arn
       Runtime: java8
       Timeout: 60
+  DynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: composerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: composerId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: Expires
+        Enabled: true
+      ProvisionedThroughput:
+        ReadCapacityUnits:
+          Ref: ReadProvisions
+        WriteCapacityUnits:
+          Ref: WriteProvisions
