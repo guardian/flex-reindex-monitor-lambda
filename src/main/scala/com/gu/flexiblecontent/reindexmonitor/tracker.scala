@@ -8,14 +8,17 @@ import com.amazonaws.auth.AWSCredentialsProvider
 case class ReindexEventRecord(composerId: String, seenAt: Long)
 
 trait Tracker {
-  def registerReindexEvent(event: ReindexEventRecord): Unit
+  def registerReindexEvents(event: Seq[ReindexEventRecord]): Unit
 }
 
 object Tracker {
   lazy val getDefault = new DynamoDBTracker()
 }
 
-class DynamoDBTracker(defaultTableName: Option[String] = None, creds: Option[AWSCredentialsProvider] = None) extends Tracker {
+class DynamoDBTracker(
+  defaultTableName: Option[String] = None,
+  creds: Option[AWSCredentialsProvider] = None) extends Tracker {
+
   val client = {
     val bld = AmazonDynamoDBClientBuilder.standard()
     creds foreach { c => println(s"adding creds: $c"); bld.setCredentials(c) }
@@ -28,9 +31,7 @@ class DynamoDBTracker(defaultTableName: Option[String] = None, creds: Option[AWS
   }
   val table = Table[ReindexEventRecord](tableName)
 
-  def registerReindexEvent(event: ReindexEventRecord) = {
-    val op = table.put(event)
-    Scanamo.exec(client)(op)
-  }
+  def registerReindexEvents(event: Seq[ReindexEventRecord]) =
+    Scanamo.exec(client)(table.putAll(event.toSet))
 
 }

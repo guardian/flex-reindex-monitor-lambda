@@ -45,23 +45,23 @@ object Lambda extends RequestHandler[KinesisEvent, Unit] {
 
   def processKinesisEvent(data: KinesisEvent, env: Env): Unit = {
     val records = data.getRecords().asScala.map(_.getKinesis())
-    records foreach { rec =>
-      processPayload(rec.getData()) match {
-        case Success(ev) =>
-          logger.info(s"received event $ev")
-          trackReindex(ev)
-        case Failure(err) =>
-          logger.error(s"couldn't process event $err")
-      }
+    val events = records.map(r => processPayload(r.getData)) collect {
+      case Success(ev) =>
+        logger.info(s"received event $ev")
+        ev
     }
+    trackReindex(events)
   }
 
   def processPayload(payload: ByteBuffer): Try[Event] = ThriftDeserialiser.deserialiseEvent(payload)
 
-  def trackReindex(event: Event, tracker: Tracker = Tracker.getDefault) = {
-    val rec = ReindexEventRecord(event.contentId, new DateTime().getMillis)
-    logger.info(s"Recording event: $rec")
-    tracker.registerReindexEvent(rec)
+  def trackReindex(events: Seq[Event], tracker: Tracker = Tracker.getDefault) = {
+    val recs = events map { ev =>
+      val rec = ReindexEventRecord(ev.contentId, new DateTime().getMillis)
+      logger.info(s"Recording event: $rec")
+      rec
+    }
+    tracker.registerReindexEvents(recs)
   }
 }
 
@@ -73,7 +73,7 @@ object TestMain {
     val data = Base64.getDecoder().decode(inputString)
     val tracker = new DynamoDBTracker(Some("flex-reindex-monitor-test"), Some(new ProfileCredentialsProvider("composer")))
     Lambda.processPayload(ByteBuffer.wrap(data)) match {
-      case Success(ev) => Lambda.trackReindex(ev, tracker)
+      case Success(ev) => Lambda.trackReindex(Seq(ev), tracker)
       case Failure(err) => println(s"Failed: ${err}")
     }
   }
