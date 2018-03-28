@@ -56,6 +56,7 @@ object Lambda extends RequestHandler[KinesisEvent, Unit] {
   def processPayload(payload: ByteBuffer): Try[Event] = ThriftDeserialiser.deserialiseEvent(payload)
 
   def trackReindex(events: Seq[Event], tracker: Tracker = Tracker.getDefault) = {
+    logger.info(s"Recording ${events.length} event(s)")
     val recs = events map { ev =>
       val rec = ReindexEventRecord(ev.contentId, new DateTime().getMillis)
       logger.info(s"Recording event: $rec")
