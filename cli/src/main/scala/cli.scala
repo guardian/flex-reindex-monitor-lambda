@@ -11,18 +11,22 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 
 class InvalidConfig(msg: String) extends Exception(msg)
 
-trait Command {
-  def run(conf: Config): Try[Unit]
+abstract class Command(name: String) {
+  def action(conf: Config): Try[Unit]
+  def run(conf: Config): Try[Unit] = {
+    if(conf.verbose) println(s"Running command: $name")
+    action(conf)
+  }
 }
 
 object Command {
-  case object count extends Command {
-    def run(conf: Config) = Try {
+  case object count extends Command("count") {
+    def action(conf: Config) = Try {
       println(Scanamo.exec(conf.buildClient)(for (items <- conf.getTable.scan()) yield items.length))
     }
   }
-  case object findTable extends Command {
-    def run(conf: Config) = Try {
+  case object findTable extends Command("findTable") {
+    def action(conf: Config) = Try {
       println(s"Add one of these tables in the env var ${Config.dbEnvVar} or pass on the command line")
       val res = conf.buildClient.listTables(Config.dbPrefix).getTableNames.asScala.filter(_.startsWith(Config.dbPrefix))
       println(res.map("\t- " + _).mkString("\n"))
@@ -74,14 +78,12 @@ object FlexReindexMonitorCli {
       .text(s"The DynamoDB table name to connect to (if missing uses env var ${Config.dbEnvVar})")
       .action((tbl, conf) => conf.copy(databaseTable = Some(tbl)))
 
-    def makeCommand(name: String, c: Command, desc: Option[String] = None) = {
-      val newCmd = cmd(name)
-      newCmd.action((_, conf) => conf.copy(command = c))
-      desc foreach { d => newCmd.text(d) }
-    }
-
-    makeCommand("count", Command.count)
-    makeCommand("findTable", Command.findTable)
+    cmd("count")
+      .text("Count the number of seen records")
+      .action((_, c) => c.copy(command = Command.count))
+    cmd("findTable")
+      .text("list possible candidates for the table name")
+      .action((_, c) => c.copy(command = Command.findTable))
   }
 
   def main(args: Array[String]): Unit = {
