@@ -5,8 +5,6 @@ import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.amazonaws.auth.AWSCredentialsProvider
 
-case class ReindexEventRecord(composerId: String, seenAt: Long)
-
 trait Tracker {
   def registerReindexEvents(event: Seq[ReindexEventRecord]): Unit
 }
