@@ -1,3 +1,3 @@
 package com.gu.flexiblecontent.reindexmonitor
 
-case class ReindexEventRecord(composerId: String, seenAt: Long)
+case class ReindexEventRecord(composerId: String, seenAt: Option[Long])
